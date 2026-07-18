@@ -1,0 +1,38 @@
+name: Deal-Bot Check
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'   # alle 15 Minuten - GitHub kann das bei Last leicht verzoegern
+  workflow_dispatch:          # erlaubt manuellen Start ueber den "Run workflow"-Button
+
+permissions:
+  contents: write   # noetig, damit der Workflow seen_angebote.json zurueckschreiben darf
+
+jobs:
+  check-deals:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository auschecken
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Abhaengigkeiten installieren
+        run: pip install -r requirements.txt
+
+      - name: Bot-Durchlauf ausfuehren
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          PRICECHARTING_API_KEY: ${{ secrets.PRICECHARTING_API_KEY }}
+        run: python run_once.py
+
+      - name: Aktualisierte "gesehen"-Liste speichern
+        run: |
+          git config user.name "deal-bot"
+          git config user.email "deal-bot@users.noreply.github.com"
+          git add seen_angebote.json
+          git diff --quiet --cached || git commit -m "Update seen_angebote.json"
+          git push
